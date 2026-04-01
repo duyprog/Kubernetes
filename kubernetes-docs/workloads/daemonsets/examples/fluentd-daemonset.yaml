@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: fluentd
+  namespace: logging
+  labels:
+    app: fluentd
+    component: log-collector
+spec:
+  selector:
+    matchLabels:
+      app: fluentd
+
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
+  template:
+    metadata:
+      labels:
+        app: fluentd
+        component: log-collector
+    spec:
+      serviceAccountName: fluentd
+      terminationGracePeriodSeconds: 30
+
+      tolerations:
+        # Run on all node types including control-plane
+        - key: node-role.kubernetes.io/control-plane
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/disk-pressure
+          operator: Exists
+          effect: NoSchedule
+        - key: node.kubernetes.io/memory-pressure
+          operator: Exists
+          effect: NoSchedule
+
+      containers:
+        - name: fluentd
+          image: fluent/fluentd-kubernetes-daemonset:v1.16-debian-elasticsearch8-1
+          env:
+            - name: FLUENT_ELASTICSEARCH_HOST
+              value: "elasticsearch.logging.svc.cluster.local"
+            - name: FLUENT_ELASTICSEARCH_PORT
+              value: "9200"
+            - name: FLUENT_ELASTICSEARCH_SCHEME
+              value: "http"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "200Mi"
+            limits:
+              cpu: "200m"
+              memory: "400Mi"
+
+          livenessProbe:
+            httpGet:
+              path: /fluentd.healthcheck?json=%7B%22ping%22%3A+%22pong%22%7D
+              port: 9880
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+          readinessProbe:
+            httpGet:
+              path: /fluentd.healthcheck?json=%7B%22ping%22%3A+%22pong%22%7D
+              port: 9880
+            initialDelaySeconds: 5
+            periodSeconds: 5
+
+          volumeMounts:
+            # Node container log directory
+            - name: varlog
+              mountPath: /var/log
+            # Docker / containerd log directory
+            - name: varlibdockercontainers
+              mountPath: /var/lib/docker/containers
+              readOnly: true
+            # Fluentd configuration
+            - name: fluentd-config
+              mountPath: /fluentd/etc
+
+      volumes:
+        - name: varlog
+          hostPath:
+            path: /var/log
+        - name: varlibdockercontainers
+          hostPath:
+            path: /var/lib/docker/containers
+        - name: fluentd-config
+          configMap:
+            name: fluentd-config
+
+---
+# ServiceAccount for Fluentd to read Pod metadata
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fluentd
+  namespace: logging
+  labels:
+    app: fluentd
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: fluentd
+  labels:
+    app: fluentd
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "namespaces"]
+    verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: fluentd
+  labels:
+    app: fluentd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: fluentd
+subjects:
+  - kind: ServiceAccount
+    name: fluentd
+    namespace: logging

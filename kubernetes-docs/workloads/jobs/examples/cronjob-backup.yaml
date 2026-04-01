@@ -1,0 +1,92 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: databases
+  labels:
+    app: postgres-backup
+spec:
+  schedule: "0 2 * * *"          # 2:00 AM UTC daily
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 3
+  startingDeadlineSeconds: 600
+
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      activeDeadlineSeconds: 7200   # 2 hour timeout
+      ttlSecondsAfterFinished: 86400
+
+      template:
+        metadata:
+          labels:
+            app: postgres-backup
+        spec:
+          restartPolicy: OnFailure
+          serviceAccountName: postgres-backup-sa  # IRSA with S3 write permissions
+
+          containers:
+            - name: backup
+              image: postgres:15.4
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+                  FILENAME="backup_${TIMESTAMP}.dump"
+                  echo "Starting backup: ${FILENAME}"
+                  pg_dump \
+                    -h ${DB_HOST} \
+                    -U ${DB_USER} \
+                    -d ${DB_NAME} \
+                    -F c \
+                    -f /tmp/${FILENAME}
+                  echo "Uploading to S3..."
+                  aws s3 cp /tmp/${FILENAME} s3://${S3_BUCKET}/postgres/${FILENAME}
+                  echo "Backup complete: s3://${S3_BUCKET}/postgres/${FILENAME}"
+
+              env:
+                - name: DB_HOST
+                  value: "postgres.databases.svc.cluster.local"
+                - name: DB_NAME
+                  value: "mydb"
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: username
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgres-secret
+                      key: password
+                - name: S3_BUCKET
+                  value: "my-db-backups"
+                - name: AWS_REGION
+                  value: "us-east-1"
+
+              resources:
+                requests:
+                  cpu: "200m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "512Mi"
+
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 999
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: ["ALL"]
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres-backup-sa
+  namespace: databases
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::<account-id>:role/PostgresBackupRole
