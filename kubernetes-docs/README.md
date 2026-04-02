@@ -19,16 +19,16 @@ A structured reference for DevOps engineers working with Kubernetes in productio
                                            │ watches / reconciles
               ┌────────────────────────────┼────────────────────────────┐
               │                            │                            │
-     ┌────────▼──────────┐      ┌──────────▼──────────┐      ┌─────────▼───────────┐
-     │       Node 1       │      │       Node 2         │      │       Node 3         │
-     │                    │      │                      │      │                      │
-     │  kubelet           │      │  kubelet             │      │  kubelet             │
-     │  kube-proxy        │      │  kube-proxy          │      │  kube-proxy          │
-     │  containerd        │      │  containerd          │      │  containerd          │
+     ┌────────▼──────────┐      ┌──────────▼──────────┐      ┌──────────▼──────────┐
+     │       Node 1      │      │       Node 2        │      │       Node 3        │
+     │                   │      │                     │      │                     │
+     │  kubelet          │      │  kubelet            │      │  kubelet            │
+     │  kube-proxy       │      │  kube-proxy         │      │  kube-proxy         │
+     │  containerd       │      │  containerd         │      │  containerd         │
      │  ┌─────┐ ┌─────┐  │      │  ┌─────┐ ┌─────┐    │      │  ┌─────┐ ┌─────┐    │
      │  │ Pod │ │ Pod │  │      │  │ Pod │ │ Pod │    │      │  │ Pod │ │ Pod │    │
      │  └─────┘ └─────┘  │      │  └─────┘ └─────┘    │      │  └─────┘ └─────┘    │
-     └────────────────────┘      └──────────────────────┘      └──────────────────────┘
+     └───────────────────┘      └─────────────────────┘      └─────────────────────┘
 ```
 
 ---
@@ -45,7 +45,6 @@ The **front door** of the cluster. Every interaction — `kubectl`, controllers,
 - Exposes the Kubernetes REST API over HTTPS
 - Authenticates and authorizes every request (via certificates, tokens, OIDC)
 - Validates request payloads against API schemas
-- Passes objects through **admission controllers** (mutation + validation)
 - Persists accepted state to etcd
 
 **Request flow:**
