@@ -405,6 +405,18 @@ Cluster
 | [StatefulSets](workloads/statefulsets/README.md) | Ordered deployment, stable identity |
 | [Jobs & CronJobs](workloads/jobs/README.md) | Batch workloads, scheduled tasks |
 
+### Scheduling
+
+| Resource | Description |
+|---|---|
+| [Scheduling Overview](scheduling/README.md) | Pipeline, filtering vs scoring, how to diagnose failures |
+| [nodeSelector](scheduling/node-selector.md) | Simple label matching, well-known node labels |
+| [Node Affinity](scheduling/node-affinity.md) | Hard/soft rules, operators, anti-node-affinity patterns |
+| [Pod Affinity & Anti-Affinity](scheduling/pod-affinity.md) | Co-location and spread relative to other Pods |
+| [Taints & Tolerations](scheduling/taints-tolerations.md) | Repel Pods from nodes, dedicated node groups, drain |
+| [Topology Spread Constraints](scheduling/topology-spread.md) | Even distribution across AZs and nodes with maxSkew |
+| [Priority & Preemption](scheduling/priority-preemption.md) | PriorityClasses, eviction ordering, protecting critical workloads |
+
 ### Scaling
 
 | Resource | Description |
